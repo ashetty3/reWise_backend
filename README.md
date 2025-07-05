@@ -1,6 +1,6 @@
-# reWise Backend
+# ReWise Backend - FastAPI
 
-An Express.js backend that provides podcast search and episode retrieval functionality using the iTunes Podcast Search API and RSS feed parsing.
+A FastAPI backend that provides podcast search and episode retrieval functionality using the iTunes Podcast Search API and RSS feed parsing.
 
 ## Features
 
@@ -10,32 +10,63 @@ An Express.js backend that provides podcast search and episode retrieval functio
 - **CORS Enabled**: Ready for frontend integration
 - **Comprehensive Logging**: All requests are logged
 - **Error Handling**: Robust error handling with appropriate HTTP status codes
+- **Auto-generated API Documentation**: Interactive docs with Swagger UI
 
 ## Installation
 
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   npm install
+   pip install -r requirements.txt
    ```
 
 ## Running the Server
 
 ### Development Mode
 ```bash
-npm run dev
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Production Mode
 ```bash
-npm start
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-The server will start on port 3000 by default. You can change this by setting the `PORT` environment variable.
+### Using Python directly
+```bash
+python main.py
+```
+
+The server will start on port 8000 by default.
 
 ## API Endpoints
 
-### 1. Search Podcasts
+### 1. Root Endpoint
+**GET** `/`
+
+Returns a simple message indicating the server is running.
+
+**Response:**
+```json
+{
+  "message": "ReWise FastAPI backend is running"
+}
+```
+
+### 2. Health Check
+**GET** `/health`
+
+Returns server status.
+
+**Response:**
+```json
+{
+  "status": "OK",
+  "message": "Server is running"
+}
+```
+
+### 3. Search Podcasts
 **GET** `/search?term=<search_term>`
 
 Searches for podcasts using the iTunes Podcast Search API.
@@ -61,10 +92,10 @@ Searches for podcasts using the iTunes Podcast Search API.
 
 **Example:**
 ```bash
-curl "http://localhost:3000/search?term=tech"
+curl "http://localhost:8000/search?term=tech"
 ```
 
-### 2. Get Episodes
+### 4. Get Episodes
 **GET** `/episodes?feedUrl=<rss_feed_url>`
 
 Retrieves episodes from a podcast RSS feed.
@@ -86,39 +117,33 @@ Retrieves episodes from a podcast RSS feed.
   "count": 1,
   "feedUrl": "https://example.com/feed.xml",
   "cached": false,
-  "cacheTimestamp": 1701432000000
+  "cacheTimestamp": 1701432000
 }
 ```
 
 **Example:**
 ```bash
-curl "http://localhost:3000/episodes?feedUrl=https://feeds.example.com/podcast.xml"
+curl "http://localhost:8000/episodes?feedUrl=https://feeds.example.com/podcast.xml"
 ```
 
-### 3. Health Check
-**GET** `/health`
-
-Returns server status.
-
-**Response:**
-```json
-{
-  "status": "OK",
-  "message": "Server is running"
-}
-```
-
-### 4. Cache Management (Optional)
+### 5. Cache Management (Optional)
 
 **Clear Cache:**
 ```bash
-curl "http://localhost:3000/episodes/cache/clear"
+curl "http://localhost:8000/episodes/cache/clear"
 ```
 
 **Check Cache Status:**
 ```bash
-curl "http://localhost:3000/episodes/cache/status"
+curl "http://localhost:8000/episodes/cache/status"
 ```
+
+## Interactive API Documentation
+
+FastAPI automatically generates interactive API documentation:
+
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
 ## Error Handling
 
@@ -143,58 +168,73 @@ CORS is enabled for all origins, making it ready for frontend integration.
 
 ## Logging
 
-All incoming requests are logged using Morgan middleware in combined format.
+All incoming requests are logged using Python's logging module.
 
 ## Dependencies
 
-- `express`: Web framework
-- `cors`: CORS middleware
-- `rss-parser`: RSS feed parsing
-- `axios`: HTTP client for API calls
-- `morgan`: HTTP request logging
-- `nodemon`: Development server (dev dependency)
+- `fastapi`: Web framework
+- `uvicorn`: ASGI server
+- `feedparser`: RSS feed parsing
+- `httpx`: HTTP client for API calls
+- `pydantic`: Data validation
+- `python-multipart`: Form data parsing
 
 ## Project Structure
 
 ```
 reWise_backend/
-├── server.js          # Main server file
-├── routes/
-│   ├── search.js      # Podcast search endpoint
-│   └── episodes.js    # Episode retrieval endpoint
-├── package.json       # Dependencies and scripts
-└── README.md         # This file
+├── main.py           # Main FastAPI application
+├── requirements.txt  # Python dependencies
+├── README.md        # This file
+└── .gitignore       # Git ignore file
 ```
 
 ## Development
 
-To run in development mode with auto-restart:
+To run in development mode with auto-reload:
 ```bash
-npm run dev
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Testing the API
 
 You can test the endpoints using curl, Postman, or any HTTP client:
 
-1. **Search for podcasts:**
+1. **Check if server is running:**
    ```bash
-   curl "http://localhost:3000/search?term=javascript"
+   curl "http://localhost:8000/"
    ```
 
-2. **Get episodes from a feed:**
+2. **Search for podcasts:**
    ```bash
-   curl "http://localhost:3000/episodes?feedUrl=https://feeds.buzzsprout.com/123456.rss"
+   curl "http://localhost:8000/search?term=javascript"
    ```
 
-3. **Check server health:**
+3. **Get episodes from a feed:**
    ```bash
-   curl "http://localhost:3000/health"
+   curl "http://localhost:8000/episodes?feedUrl=https://feeds.buzzsprout.com/123456.rss"
    ```
+
+4. **Check server health:**
+   ```bash
+   curl "http://localhost:8000/health"
+   ```
+
+## Deployment
+
+### Render Deployment
+
+This project is ready for deployment on Render. The `requirements.txt` file contains all necessary dependencies.
+
+### Environment Variables
+
+- `PORT`: Server port (default: 8000)
+- `HOST`: Server host (default: 0.0.0.0)
 
 ## Notes
 
 - The search endpoint filters out podcasts without valid feed URLs
 - The episodes endpoint limits results to 20 episodes maximum
 - All external API calls have 10-second timeouts
-- The server includes proper error handling for network issues and invalid responses 
+- The server includes proper error handling for network issues and invalid responses
+- FastAPI provides automatic request/response validation using Pydantic models 
