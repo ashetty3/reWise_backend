@@ -56,11 +56,38 @@ class Podcast(BaseModel):
     artwork: Optional[str] = None
     artistName: str
 
+class PodcastInfo(BaseModel):
+    title: str
+    description: str
+    artwork: Optional[str] = None
+
 class Episode(BaseModel):
     title: str
     description: str
     pubDate: Optional[str] = None
     audioUrl: Optional[str] = None
+    duration: Optional[str] = None
+    episodeLink: Optional[str] = None
+    image: Optional[str] = None
+    # Enhanced UX metadata
+    episodeNumber: Optional[int] = None
+    season: Optional[int] = None
+    explicit: Optional[bool] = None
+    language: Optional[str] = None
+    fileSize: Optional[str] = None
+    audioQuality: Optional[str] = None
+    format: Optional[str] = None
+    hasTranscript: Optional[bool] = None
+    transcriptUrl: Optional[str] = None
+    showNotesUrl: Optional[str] = None
+    categories: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
+    guestHosts: Optional[List[str]] = None
+    contentWarnings: Optional[List[str]] = None
+    isLive: Optional[bool] = None
+    isRerun: Optional[bool] = None
+    chapters: Optional[List[dict]] = None
+    relatedLinks: Optional[List[str]] = None
 
 class SearchResponse(BaseModel):
     podcasts: List[Podcast]
@@ -68,6 +95,7 @@ class SearchResponse(BaseModel):
     searchTerm: str
 
 class EpisodesResponse(BaseModel):
+    podcast: PodcastInfo
     episodes: List[Episode]
     count: int
     feedUrl: str
@@ -132,6 +160,52 @@ def get_client_ip(request: Request) -> str:
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+def safe_get(obj, attr, default=None):
+    """Safely get attribute from feedparser object"""
+    try:
+        if hasattr(obj, attr):
+            value = getattr(obj, attr)
+            # Handle feedparser's complex object types
+            if hasattr(value, 'href'):
+                return value.href
+            elif hasattr(value, 'term'):
+                return value.term
+            elif hasattr(value, 'value'):
+                return value.value
+            elif isinstance(value, (list, tuple)) and len(value) > 0:
+                # Handle lists of objects
+                if hasattr(value[0], 'href'):
+                    return value[0].href
+                elif hasattr(value[0], 'term'):
+                    return value[0].term
+                else:
+                    return str(value[0]) if value[0] else default
+            else:
+                return str(value) if value else default
+        return default
+    except Exception:
+        return default
+
+def safe_get_int(obj, attr, default=None):
+    """Safely get integer attribute from feedparser object"""
+    try:
+        value = safe_get(obj, attr, default)
+        if value is not None:
+            return int(str(value))
+        return default
+    except (ValueError, TypeError):
+        return default
+
+def safe_get_bool(obj, attr, default=None):
+    """Safely get boolean attribute from feedparser object"""
+    try:
+        value = safe_get(obj, attr, default)
+        if value is not None:
+            return str(value).lower() in ['yes', 'true', '1']
+        return default
+    except Exception:
+        return default
 
 @app.get("/")
 async def root():
@@ -238,7 +312,7 @@ async def get_episodes(
         feedUrl: The RSS feed URL of the podcast
         
     Returns:
-        List of episodes with their details
+        Podcast metadata and list of episodes with their details
     """
     # Rate limiting
     client_ip = get_client_ip(request)
@@ -258,9 +332,10 @@ async def get_episodes(
     cache_key = feedUrl
     cached_data = feed_cache.get(cache_key)
     
-    if is_cache_valid(cached_data):
+    if cached_data and is_cache_valid(cached_data):
         logger.info(f"Returning cached episodes for feed")
         return EpisodesResponse(
+            podcast=cached_data['podcast'],
             episodes=cached_data['episodes'],
             count=len(cached_data['episodes']),
             feedUrl=feedUrl,
@@ -269,19 +344,31 @@ async def get_episodes(
         )
     
     try:
-        # Fetch and parse RSS feed
+        # Fetch and parse RSS feed with robust error handling
         logger.info(f"Fetching fresh episodes for feed")
         
-        # Use feedparser to parse the RSS feed
+        # Use feedparser with more lenient parsing
         feed = feedparser.parse(feedUrl)
         
-        # Check for parsing errors
-        if hasattr(feed, 'bozo') and feed.bozo:
-            raise HTTPException(status_code=400, detail="Invalid RSS feed format")
+        # Validate feed structure
+        if not hasattr(feed, 'feed') or not feed.feed:
+            raise HTTPException(status_code=400, detail="Invalid RSS feed structure")
         
         # Validate feed structure
         if not hasattr(feed, 'entries') or not feed.entries:
             raise HTTPException(status_code=400, detail="No episodes found in RSS feed")
+        
+        # Extract podcast-level metadata using safe extraction
+        podcast_title = safe_get(feed.feed, 'title', 'Unknown Podcast')
+        podcast_description = safe_get(feed.feed, 'description', 'No description available')
+        podcast_artwork = safe_get(feed.feed, 'image') or safe_get(feed.feed, 'itunes_image')
+        
+        # Create podcast info
+        podcast_info = PodcastInfo(
+            title=sanitize_input(podcast_title, 200),
+            description=sanitize_input(podcast_description, 1000),
+            artwork=podcast_artwork if podcast_artwork and validate_url(podcast_artwork) else None
+        )
         
         # Parse and format episodes
         episodes = []
@@ -290,29 +377,156 @@ async def get_episodes(
             audio_url = None
             if hasattr(entry, 'enclosures') and entry.enclosures:
                 for enclosure in entry.enclosures:
-                    if enclosure.get('type', '').startswith('audio/'):
-                        audio_url = enclosure.get('href')
+                    enclosure_type = getattr(enclosure, 'type', '')
+                    if isinstance(enclosure_type, str) and enclosure_type.startswith('audio/'):
+                        audio_url = getattr(enclosure, 'href', None)
                         # Validate audio URL
                         if audio_url and validate_url(audio_url):
                             break
                         else:
                             audio_url = None
             
-            # Extract and sanitize description
+            # Extract and sanitize description (prefer full description)
             description = ""
-            if hasattr(entry, 'summary'):
-                description = sanitize_input(entry.summary, 1000)
+            if hasattr(entry, 'content') and entry.content and len(entry.content) > 0:
+                content_value = getattr(entry.content[0], 'value', '') if entry.content[0] else ''
+                description = sanitize_input(str(content_value), 1000)
+            elif hasattr(entry, 'summary'):
+                description = sanitize_input(str(getattr(entry, 'summary', '')), 1000)
             elif hasattr(entry, 'description'):
-                description = sanitize_input(entry.description, 1000)
-            elif hasattr(entry, 'content') and entry.content and len(entry.content) > 0:
-                content_value = entry.content[0].get('value', '') if entry.content[0] else ''
-                description = sanitize_input(content_value, 1000)
+                description = sanitize_input(str(getattr(entry, 'description', '')), 1000)
+            
+            # Extract duration from iTunes tags
+            duration = None
+            if hasattr(entry, 'itunes_duration'):
+                duration = getattr(entry, 'itunes_duration', None)
+            
+            # Extract episode link
+            episode_link = None
+            if hasattr(entry, 'link'):
+                episode_link = getattr(entry, 'link', None)
+                if episode_link and not validate_url(str(episode_link)):
+                    episode_link = None
+            
+            # Extract episode image (prefer episode-level, fallback to podcast-level)
+            episode_image = None
+            if hasattr(entry, 'media_content') and entry.media_content:
+                for media in entry.media_content:
+                    if media.get('medium') == 'image':
+                        episode_image = media.get('url')
+                        if episode_image and validate_url(str(episode_image)):
+                            break
+                        else:
+                            episode_image = None
+            
+            # Fallback to podcast artwork if no episode image
+            if not episode_image:
+                episode_image = podcast_artwork
+            
+            # Extract enhanced metadata for better UX
+            episode_number = safe_get_int(entry, 'itunes_episode')
+            season = safe_get_int(entry, 'itunes_season')
+            explicit = safe_get_bool(entry, 'itunes_explicit')
+            language = safe_get(entry, 'language')
+            
+            # Extract file size and format from enclosures
+            file_size = None
+            audio_format = None
+            if hasattr(entry, 'enclosures') and entry.enclosures:
+                for enclosure in entry.enclosures:
+                    enclosure_type = safe_get(enclosure, 'type', '')
+                    if enclosure_type and str(enclosure_type).startswith('audio/'):
+                        file_size = safe_get(enclosure, 'length')
+                        audio_format = safe_get(enclosure, 'type')
+                        break
+            
+            # Extract transcript and show notes URLs
+            transcript_url = None
+            show_notes_url = None
+            if hasattr(entry, 'links'):
+                for link in entry.links:
+                    link_rel = safe_get(link, 'rel')
+                    if link_rel == 'transcript':
+                        transcript_url = safe_get(link, 'href')
+                    elif link_rel == 'show-notes':
+                        show_notes_url = safe_get(link, 'href')
+            
+            # Extract categories and keywords
+            categories = []
+            if hasattr(entry, 'tags'):
+                categories = [safe_get(tag, 'term') for tag in entry.tags if safe_get(tag, 'term')]
+            
+            keywords = []
+            itunes_keywords = safe_get(entry, 'itunes_keywords')
+            if itunes_keywords:
+                keywords = [kw.strip() for kw in str(itunes_keywords).split(',') if kw.strip()]
+            
+            # Extract guest hosts
+            guest_hosts = []
+            itunes_author = safe_get(entry, 'itunes_author')
+            if itunes_author:
+                guest_hosts = [str(itunes_author)]
+            
+            # Extract content warnings
+            content_warnings = []
+            if safe_get_bool(entry, 'itunes_explicit'):
+                content_warnings.append('explicit')
+            
+            # Check if episode is live or rerun
+            is_live = False
+            is_rerun = False
+            episode_type = safe_get(entry, 'itunes_episodetype')
+            if episode_type:
+                episode_type_str = str(episode_type).lower()
+                title_str = str(safe_get(entry, 'title', '')).lower()
+                is_live = episode_type_str == 'full' and 'live' in title_str
+                is_rerun = episode_type_str == 'rerun'
+            
+            # Extract chapters if available
+            chapters = []
+            if hasattr(entry, 'psc_chapters'):
+                for chapter in entry.psc_chapters:
+                    chapters.append({
+                        'title': chapter.get('title', ''),
+                        'start': chapter.get('start', ''),
+                        'end': chapter.get('end', '')
+                    })
+            
+            # Extract related links from description
+            related_links = []
+            if description:
+                # Simple regex to find URLs in description
+                url_pattern = r'https?://[^\s<>"]+'
+                found_urls = re.findall(url_pattern, description)
+                related_links = [url for url in found_urls if validate_url(url)]
             
             episode = Episode(
-                title=sanitize_input(entry.get('title', 'Untitled'), 200),
+                title=sanitize_input(str(safe_get(entry, 'title', 'Untitled')), 200),
                 description=description or 'No description available',
-                pubDate=entry.get('published') or entry.get('updated'),
-                audioUrl=audio_url
+                pubDate=str(safe_get(entry, 'published') or safe_get(entry, 'updated', '')),
+                audioUrl=audio_url,
+                duration=duration,
+                episodeLink=episode_link,
+                image=str(episode_image) if episode_image and validate_url(str(episode_image)) else None,
+                # Enhanced UX metadata
+                episodeNumber=episode_number,
+                season=season,
+                explicit=explicit,
+                language=str(language) if language else None,
+                fileSize=str(file_size) if file_size else None,
+                audioQuality=str(audio_format) if audio_format else None,
+                format=str(audio_format) if audio_format else None,
+                hasTranscript=transcript_url is not None,
+                transcriptUrl=str(transcript_url) if transcript_url and validate_url(str(transcript_url)) else None,
+                showNotesUrl=str(show_notes_url) if show_notes_url and validate_url(str(show_notes_url)) else None,
+                categories=categories if categories else None,
+                keywords=keywords if keywords else None,
+                guestHosts=guest_hosts if guest_hosts else None,
+                contentWarnings=content_warnings if content_warnings else None,
+                isLive=is_live,
+                isRerun=is_rerun,
+                chapters=chapters if chapters else None,
+                relatedLinks=related_links if related_links else None
             )
             
             # Only include episodes with valid audio URLs
@@ -321,6 +535,7 @@ async def get_episodes(
         
         # Cache the results
         cache_entry = {
+            'podcast': podcast_info,
             'episodes': episodes,
             'timestamp': int(time.time())
         }
@@ -329,6 +544,7 @@ async def get_episodes(
         logger.info(f"Found {len(episodes)} episodes for feed")
         
         return EpisodesResponse(
+            podcast=podcast_info,
             episodes=episodes,
             count=len(episodes),
             feedUrl=feedUrl,
@@ -365,12 +581,13 @@ async def cache_status(request: Request):
     
     cache_entries = []
     for url, data in feed_cache.items():
-        cache_entries.append({
-            "url": url[:50] + "..." if len(url) > 50 else url,  # Truncate long URLs
-            "episodeCount": len(data['episodes']),
-            "timestamp": data['timestamp'],
-            "isValid": is_cache_valid(data)
-        })
+        if data:  # Check if data exists
+            cache_entries.append({
+                "url": url[:50] + "..." if len(url) > 50 else url,  # Truncate long URLs
+                "episodeCount": len(data['episodes']),
+                "timestamp": data['timestamp'],
+                "isValid": is_cache_valid(data)
+            })
     
     return {
         "cacheSize": len(feed_cache),

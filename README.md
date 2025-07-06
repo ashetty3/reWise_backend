@@ -98,7 +98,7 @@ curl "http://localhost:8000/search?term=tech"
 ### 4. Get Episodes
 **GET** `/episodes?feedUrl=<rss_feed_url>`
 
-Retrieves episodes from a podcast RSS feed.
+Retrieves episodes from a podcast RSS feed. Supports various RSS feed formats including `.xml`, `.rss`, or no extension.
 
 **Parameters:**
 - `feedUrl` (required): The RSS feed URL of the podcast
@@ -106,12 +106,40 @@ Retrieves episodes from a podcast RSS feed.
 **Response:**
 ```json
 {
+  "podcast": {
+    "title": "Podcast Title",
+    "description": "Podcast description",
+    "artwork": "https://example.com/podcast-artwork.jpg"
+  },
   "episodes": [
     {
       "title": "Episode Title",
       "description": "Episode description or summary",
       "pubDate": "2023-12-01T10:00:00Z",
-      "audioUrl": "https://example.com/episode.mp3"
+      "audioUrl": "https://example.com/episode.mp3",
+      "duration": "45:30",
+      "episodeLink": "https://example.com/episode-page",
+      "image": "https://example.com/episode-image.jpg",
+      "episodeNumber": 42,
+      "season": 3,
+      "explicit": false,
+      "language": "en",
+      "fileSize": "25.6 MB",
+      "audioQuality": "audio/mpeg",
+      "format": "MP3",
+      "hasTranscript": true,
+      "transcriptUrl": "https://example.com/transcript",
+      "showNotesUrl": "https://example.com/show-notes",
+      "categories": ["technology", "AI", "startups"],
+      "keywords": ["machine learning", "entrepreneurship"],
+      "guestHosts": ["Elon Musk"],
+      "contentWarnings": [],
+      "isLive": false,
+      "isRerun": false,
+      "chapters": [
+        {"title": "Introduction", "start": "00:00", "end": "05:30"}
+      ],
+      "relatedLinks": ["https://example.com/resource1"]
     }
   ],
   "count": 1,
@@ -120,6 +148,16 @@ Retrieves episodes from a podcast RSS feed.
   "cacheTimestamp": 1701432000
 }
 ```
+
+**Features:**
+- **Robust RSS parsing**: Handles `.xml`, `.rss`, or no extension
+- **Podcast metadata**: Returns podcast title, description, and artwork
+- **Enhanced episode data**: Includes duration, episode links, and images
+- **Smart image handling**: Prefers episode-level images, falls back to podcast artwork
+- **Full descriptions**: Prioritizes full episode descriptions when available
+- **Rich UX metadata**: Episode numbers, categories, guest hosts, transcripts, chapters, and more
+- **Accessibility features**: Transcript availability, content warnings, file information
+- **Content discovery**: Keywords, categories, and related links for better episode discovery
 
 **Example:**
 ```bash

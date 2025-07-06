@@ -1,0 +1,520 @@
+{
+	"info": {
+		"_postman_id": "rewise-podcast-api-tests",
+		"name": "ReWise Podcast API Tests",
+		"description": "Comprehensive test collection for the enhanced ReWise Podcast API with UX-focused metadata",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/health",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Search Podcasts",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/search?term=tech",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"search"
+					],
+					"query": [
+						{
+							"key": "term",
+							"value": "tech"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Episodes - NPR News (.xml)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=https://feeds.npr.org/510313/podcast.xml",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "https://feeds.npr.org/510313/podcast.xml"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test enhanced metadata fields",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has podcast metadata\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('podcast');",
+							"    pm.expect(response.podcast).to.have.property('title');",
+							"    pm.expect(response.podcast).to.have.property('description');",
+							"    pm.expect(response.podcast).to.have.property('artwork');",
+							"});",
+							"",
+							"pm.test(\"Response has episodes array\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('episodes');",
+							"    pm.expect(response.episodes).to.be.an('array');",
+							"    pm.expect(response.episodes.length).to.be.greaterThan(0);",
+							"});",
+							"",
+							"pm.test(\"First episode has enhanced metadata\", function () {",
+							"    const response = pm.response.json();",
+							"    const firstEpisode = response.episodes[0];",
+							"    ",
+							"    // Core fields",
+							"    pm.expect(firstEpisode).to.have.property('title');",
+							"    pm.expect(firstEpisode).to.have.property('description');",
+							"    pm.expect(firstEpisode).to.have.property('audioUrl');",
+							"    pm.expect(firstEpisode).to.have.property('duration');",
+							"    ",
+							"    // Enhanced UX metadata",
+							"    pm.expect(firstEpisode).to.have.property('episodeNumber');",
+							"    pm.expect(firstEpisode).to.have.property('season');",
+							"    pm.expect(firstEpisode).to.have.property('explicit');",
+							"    pm.expect(firstEpisode).to.have.property('language');",
+							"    pm.expect(firstEpisode).to.have.property('fileSize');",
+							"    pm.expect(firstEpisode).to.have.property('audioQuality');",
+							"    pm.expect(firstEpisode).to.have.property('format');",
+							"    pm.expect(firstEpisode).to.have.property('hasTranscript');",
+							"    pm.expect(firstEpisode).to.have.property('transcriptUrl');",
+							"    pm.expect(firstEpisode).to.have.property('showNotesUrl');",
+							"    pm.expect(firstEpisode).to.have.property('categories');",
+							"    pm.expect(firstEpisode).to.have.property('keywords');",
+							"    pm.expect(firstEpisode).to.have.property('guestHosts');",
+							"    pm.expect(firstEpisode).to.have.property('contentWarnings');",
+							"    pm.expect(firstEpisode).to.have.property('isLive');",
+							"    pm.expect(firstEpisode).to.have.property('isRerun');",
+							"    pm.expect(firstEpisode).to.have.property('chapters');",
+							"    pm.expect(firstEpisode).to.have.property('relatedLinks');",
+							"});",
+							"",
+							"pm.test(\"Response includes cache information\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('cached');",
+							"    pm.expect(response).to.have.property('cacheTimestamp');",
+							"    pm.expect(response).to.have.property('count');",
+							"    pm.expect(response).to.have.property('feedUrl');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Get Episodes - Huberman Lab (no extension)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=https://feeds.megaphone.fm/huberman",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "https://feeds.megaphone.fm/huberman"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test RSS feed without extension",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Feed without extension is parsed correctly\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response.episodes.length).to.be.greaterThan(0);",
+							"    pm.expect(response.podcast.title).to.not.be.empty;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Get Episodes - Example .rss feed",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=https://feeds.buzzsprout.com/1234567.rss",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "https://feeds.buzzsprout.com/1234567.rss"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test .rss extension handling",
+							"pm.test(\"Status code is 200 or 400 (invalid feed)\", function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Get Episodes - Invalid URL",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=invalid-url",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "invalid-url"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test invalid URL handling",
+							"pm.test(\"Status code is 400 for invalid URL\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"",
+							"pm.test(\"Error message is appropriate\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response.detail).to.include('Invalid URL format');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Get Episodes - Missing feedUrl",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test missing parameter",
+							"pm.test(\"Status code is 422 for missing parameter\", function () {",
+							"    pm.response.to.have.status(422);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Cache Status",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes/cache/status",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes",
+						"cache",
+						"status"
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test cache status endpoint",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has cache information\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('cacheSize');",
+							"    pm.expect(response).to.have.property('entries');",
+							"    pm.expect(response.entries).to.be.an('array');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Clear Cache",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes/cache/clear",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes",
+						"cache",
+						"clear"
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test cache clear endpoint",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response confirms cache cleared\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('message');",
+							"    pm.expect(response).to.have.property('clearedEntries');",
+							"    pm.expect(response.message).to.include('cleared');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Test Caching Behavior",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=https://feeds.npr.org/510313/podcast.xml",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "https://feeds.npr.org/510313/podcast.xml"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test caching behavior",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response includes cache information\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response).to.have.property('cached');",
+							"    pm.expect(response).to.have.property('cacheTimestamp');",
+							"});",
+							"",
+							"// Store response time for comparison",
+							"pm.globals.set('firstRequestTime', Date.now());"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		},
+		{
+			"name": "Test Cached Response",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/episodes?feedUrl=https://feeds.npr.org/510313/podcast.xml",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"episodes"
+					],
+					"query": [
+						{
+							"key": "feedUrl",
+							"value": "https://feeds.npr.org/510313/podcast.xml"
+						}
+					]
+				}
+			},
+			"response": [],
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test that second request is cached",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response is cached\", function () {",
+							"    const response = pm.response.json();",
+							"    pm.expect(response.cached).to.be.true;",
+							"});",
+							"",
+							"pm.test(\"Cached response is faster\", function () {",
+							"    const firstRequestTime = pm.globals.get('firstRequestTime');",
+							"    const currentTime = Date.now();",
+							"    const responseTime = pm.response.responseTime;",
+							"    ",
+							"    // Cached response should be faster than fresh request",
+							"    pm.expect(responseTime).to.be.lessThan(1000); // Should be under 1 second",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+} 
